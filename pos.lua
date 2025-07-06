@@ -1,17 +1,21 @@
--- Poggimart POS System v2.0
--- A continuously running display for ComputerCraft (CC: Tweaked)
+-- Poggimart POS System v2.1
+-- Now with automatic monitor support!
 -- To exit: Hold Ctrl+T
 
 --[[
   To use:
-  1. Save this code as a file on a ComputerCraft computer.
-  2. For sound, attach a Speaker peripheral to any side of the computer.
-  3. Run the program from the terminal.
-  4. An advanced computer and monitor are required.
+  1. Save this code on a ComputerCraft computer.
+  2. Optionally, place a monitor next to the computer. The script will use it automatically.
+  3. For sound, attach a Speaker peripheral to any side of the computer.
+  4. Run the program from the terminal.
 ]]
 
+-- NEW: Automatically find a monitor, or fall back to the computer's own screen.
+-- All drawing commands will be sent to the 'screen' object.
+local screen = window.create(peripheral.find("monitor") or term.native())
+
 -- Global settings
-local termWidth, termHeight = term.getSize()
+local termWidth, termHeight = screen.getSize()
 local speaker = peripheral.find("speaker")
 
 -- Poggimart branding & colors
@@ -28,7 +32,7 @@ local items = {
   "Pogi-Chiki", "Spicy Chicken", "Onigiri (Salmon)", "Onigiri (Tuna Mayo)",
   "Sando (Egg Salad)", "Sando (Pork Katsu)", "Melon Pan", "Anpan (Red Bean)",
   "Oden", "Nikuman (Pork Bun)", "Iced Coffee", "Iced Latte", "Green Tea",
-  "Mugi-cha (Barley Tea)", "Pocari Sweat", "C.C. Lemon", "PogiMart Socks",
+  "Mugi-cha (Barley Tea)", "Pocari Sweat", "C.C. Lemon", "PoggiMart Socks",
   "Pogi-Socks (Green)", "Pogi-Socks (Blue)"
 }
 local displayedItem = ""
@@ -46,103 +50,103 @@ end
 
 -- Function to clear the screen
 local function clearScreen()
-  term.setBackgroundColor(backgroundColor)
-  term.clear()
+  screen.setBackgroundColor(backgroundColor)
+  screen.clear()
 end
 
 -- Function to draw the header and logo
 local function drawHeader()
   -- Green stripe
-  term.setBackgroundColor(poggimartGreen)
+  screen.setBackgroundColor(poggimartGreen)
   for y = 1, 3 do
-    term.setCursorPos(1, y)
-    term.write(string.rep(" ", termWidth))
+    screen.setCursorPos(1, y)
+    screen.write(string.rep(" ", termWidth))
   end
   -- Blue stripe
-  term.setBackgroundColor(poggimartBlue)
+  screen.setBackgroundColor(poggimartBlue)
   for y = 4, 5 do
-    term.setCursorPos(1, y)
-    term.write(string.rep(" ", termWidth))
+    screen.setCursorPos(1, y)
+    screen.write(string.rep(" ", termWidth))
   end
   -- Logo Text
-  term.setCursorPos(3, 2)
-  term.setBackgroundColor(poggimartGreen)
-  term.setTextColor(colors.white)
-  term.write("Poggimart")
+  screen.setCursorPos(3, 2)
+  screen.setBackgroundColor(poggimartGreen)
+  screen.setTextColor(colors.white)
+  screen.write("Poggimart")
 end
 
 -- Function to draw the main static layout
 local function drawLayout()
   drawHeader()
   -- Header for the item display
-  term.setBackgroundColor(headerColor)
-  term.setCursorPos(1, 7)
-  term.write(string.rep(" ", termWidth))
-  term.setCursorPos(3, 7)
-  term.setTextColor(textColor)
-  term.write("Scanned Item:")
+  screen.setBackgroundColor(headerColor)
+  screen.setCursorPos(1, 7)
+  screen.write(string.rep(" ", termWidth))
+  screen.setCursorPos(3, 7)
+  screen.setTextColor(textColor)
+  screen.write("Scanned Item:")
   -- Item display area
-  term.setBackgroundColor(colors.lightGray)
+  screen.setBackgroundColor(colors.lightGray)
   for i = 1, 3 do
-    term.setCursorPos(2, 8 + i)
-    term.write(string.rep(" ", termWidth - 3))
+    screen.setCursorPos(2, 8 + i)
+    screen.write(string.rep(" ", termWidth - 3))
   end
   -- Button area background
-  term.setBackgroundColor(colors.lightGray)
-  term.setCursorPos(1, termHeight - 4)
-  term.write(string.rep(" ", termWidth))
+  screen.setBackgroundColor(colors.lightGray)
+  screen.setCursorPos(1, termHeight - 4)
+  screen.write(string.rep(" ", termWidth))
   -- "Scan Random Item" button
   local scanBtnWidth = 20
   local scanBtnX = 4
-  term.setBackgroundColor(buttonColor)
-  term.setCursorPos(scanBtnX, termHeight - 2)
-  term.write(string.rep(" ", scanBtnWidth))
-  term.setCursorPos(scanBtnX + 2, termHeight - 2)
-  term.setTextColor(buttonTextColor)
-  term.write("Scan Random Item")
+  screen.setBackgroundColor(buttonColor)
+  screen.setCursorPos(scanBtnX, termHeight - 2)
+  screen.write(string.rep(" ", scanBtnWidth))
+  screen.setCursorPos(scanBtnX + 2, termHeight - 2)
+  screen.setTextColor(buttonTextColor)
+  screen.write("Scan Random Item")
   -- "Clear" button
   local clearBtnWidth = 10
   local clearBtnX = scanBtnX + scanBtnWidth + 2
-  term.setBackgroundColor(colors.orange)
-  term.setCursorPos(clearBtnX, termHeight - 2)
-  term.write(string.rep(" ", clearBtnWidth))
-  term.setCursorPos(clearBtnX + 2, termHeight - 2)
-  term.setTextColor(buttonTextColor)
-  term.write("Clear")
+  screen.setBackgroundColor(colors.orange)
+  screen.setCursorPos(clearBtnX, termHeight - 2)
+  screen.write(string.rep(" ", clearBtnWidth))
+  screen.setCursorPos(clearBtnX + 2, termHeight - 2)
+  screen.setTextColor(buttonTextColor)
+  screen.write("Clear")
 end
 
 -- Function to display a scanned item
 local function displayItem(item)
   displayedItem = item
-  term.setBackgroundColor(colors.lightGray)
-  term.setCursorPos(2, 10)
-  term.write(string.rep(" ", termWidth - 3)) -- Clear previous item
-  term.setCursorPos(4, 10)
-  term.setTextColor(textColor)
-  term.write(displayedItem)
+  screen.setBackgroundColor(colors.lightGray)
+  screen.setCursorPos(2, 10)
+  screen.write(string.rep(" ", termWidth - 3)) -- Clear previous item
+  screen.setCursorPos(4, 10)
+  screen.setTextColor(textColor)
+  screen.write(displayedItem)
 end
 
 -- Function to update the clock
 local function updateClock()
   local time = textutils.formatTime(os.time(), false)
-  term.setBackgroundColor(poggimartGreen)
-  term.setTextColor(colors.white)
-  term.setCursorPos(termWidth - 9, 2)
-  term.write(" " .. time .. " ")
+  screen.setBackgroundColor(poggimartGreen)
+  screen.setTextColor(colors.white)
+  screen.setCursorPos(termWidth - 9, 2)
+  screen.write(" " .. time .. " ")
 end
 
 -- Function to update the scrolling ticker
 local function updateTicker()
-  term.setBackgroundColor(poggimartBlue)
-  term.setTextColor(colors.white)
-  term.setCursorPos(1, termHeight)
+  screen.setBackgroundColor(poggimartBlue)
+  screen.setTextColor(colors.white)
+  screen.setCursorPos(1, termHeight)
   -- Create the visible portion of the ticker string
   local displayStr = tickerText:sub(tickerIndex, tickerIndex + termWidth - 1)
   -- If the substring is too short (end of the main string), wrap around
   if #displayStr < termWidth then
     displayStr = displayStr .. tickerText:sub(1, termWidth - #displayStr)
   end
-  term.write(displayStr)
+  screen.write(displayStr)
   -- Move the index for the next frame
   tickerIndex = tickerIndex + 1
   if tickerIndex > #tickerText then
@@ -158,11 +162,11 @@ local function main()
   -- Start timers for clock and ticker
   os.startTimer(1) -- Clock timer
   os.startTimer(0.25) -- Ticker timer
-  
+
   while true do
     local event, p1, p2, p3 = os.pullEvent()
-    
-    if event == "mouse_click" then
+
+    if event == "mouse_click" or event == "monitor_touch" then
       local button, x, y = p1, p2, p3
       -- Check for "Scan Random Item" button click
       if y == termHeight - 2 and x >= 4 and x < 4 + 20 then
