@@ -1,24 +1,31 @@
 -- Poggimart POS System v2.2
--- Now with monitor mirroring and jingle button!
+-- Now with dual display and working sounds!
 -- To exit: Hold Ctrl+T
 
--- Peripheral setup
+--[[
+  Updates:
+  - Dual output: GUI shows on both terminal and attached monitor
+  - Fixed speaker issue with valid instruments
+  - Added FamilyMart-style jingle
+  - Monitor displays scan results clearly if available
+
+  To use:
+  1. Save this code on a ComputerCraft computer.
+  2. Optionally, place a monitor next to the computer. The script will use it.
+  3. Attach a speaker peripheral to hear sound effects and the jingle.
+  4. Run the program from the terminal.
+]]
+
+-- Detect peripherals
 local monitor = peripheral.find("monitor")
 local speaker = peripheral.find("speaker")
-local screen = term
 
-if monitor then
-  monitor.setTextScale(1)
-end
+-- Set up displays
+local displays = { term }
+if monitor then table.insert(displays, monitor) end
 
--- Helper function to draw to both terminal and monitor
-local function onScreen(fn)
-  fn(screen)
-  if monitor then fn(monitor) end
-end
-
--- Global settings
-local termWidth, termHeight = screen.getSize()
+-- Settings
+local termWidth, termHeight = term.getSize()
 local poggimartBlue = colors.blue
 local poggimartGreen = colors.green
 local backgroundColor = colors.white
@@ -27,6 +34,7 @@ local headerColor = colors.lightGray
 local buttonColor = colors.gray
 local buttonTextColor = colors.white
 
+-- Updated product list
 local items = {
   "Pogi-Chiki", "Spicy Chicken", "Onigiri (Salmon)", "Onigiri (Tuna Mayo)",
   "Sando (Egg Salad)", "Sando (Pork Katsu)", "Melon Pan", "Anpan (Red Bean)",
@@ -35,188 +43,188 @@ local items = {
   "Pogi-Socks (Green)", "Pogi-Socks (Blue)"
 }
 local displayedItem = ""
-local tickerText = "   *** Welcome to Poggimart! *** Try our legendary Pogi-Chiki!   Fresh socks available now!   Hydrate with Pocari Sweat!   "
+
+-- Ticker text
+local tickerText = "   *** Welcome to Poggimart! *** Try our famous Pogi-Chiki!   New socks in stock now!   Don't forget to grab an Onigiri for the road!   Poggimart -- Your happy place.   "
 local tickerIndex = 1
 
--- Fix timers: we store the IDs
-local clockTimer = nil
-local tickerTimer = nil
+-- Helper to draw on all displays
+local function drawOnAll(func)
+  for _, d in ipairs(displays) do func(d) end
+end
 
--- Play a jingle (simplified FamilyMart melody)
+-- Function to play a sound
+local function playSound()
+  if speaker then
+    speaker.playNote("bit", 1.0, 12) -- F# with valid instrument and pitch
+  end
+end
+
+-- Function to play the FamilyMart jingle
 local function playJingle()
   if not speaker then return end
   local notes = {
-    { note = 0,  delay = 0.1 },
-    { note = 4,  delay = 0.1 },
-    { note = 7,  delay = 0.1 },
-    { note = 12, delay = 0.15 },
-    { note = 7,  delay = 0.1 },
-    { note = 9,  delay = 0.2 },
-    { note = 14, delay = 0.3 }
+    {"bit", 12}, {"bit", 16}, {"bit", 14}, {"bit", 21},
+    {"bit", 19}, {"bit", 16}, {"bit", 24}, {"bit", 23}
   }
-  for _, tone in ipairs(notes) do
-    speaker.playNote("bell", 1.0, tone.note)
-    sleep(tone.delay)
+  for _, n in ipairs(notes) do
+    speaker.playNote(n[1], 1.0, n[2])
+    sleep(0.15)
   end
 end
 
--- Play short beep for button clicks
-local function playSound()
-  if speaker then
-    speaker.playNote("bell", 1.0, 12)
-  end
-end
-
--- UI Drawing Functions
+-- Clear screen
 local function clearScreen()
-  onScreen(function(scr)
-    scr.setBackgroundColor(backgroundColor)
-    scr.clear()
+  drawOnAll(function(d)
+    d.setBackgroundColor(backgroundColor)
+    d.clear()
   end)
 end
 
+-- Draw header
 local function drawHeader()
-  onScreen(function(scr)
-    scr.setBackgroundColor(poggimartGreen)
+  drawOnAll(function(d)
+    d.setBackgroundColor(poggimartGreen)
     for y = 1, 3 do
-      scr.setCursorPos(1, y)
-      scr.write(string.rep(" ", termWidth))
+      d.setCursorPos(1, y)
+      d.write(string.rep(" ", termWidth))
     end
-    scr.setBackgroundColor(poggimartBlue)
+    d.setBackgroundColor(poggimartBlue)
     for y = 4, 5 do
-      scr.setCursorPos(1, y)
-      scr.write(string.rep(" ", termWidth))
+      d.setCursorPos(1, y)
+      d.write(string.rep(" ", termWidth))
     end
-    scr.setCursorPos(3, 2)
-    scr.setBackgroundColor(poggimartGreen)
-    scr.setTextColor(colors.white)
-    scr.write("Poggimart")
+    d.setCursorPos(3, 2)
+    d.setBackgroundColor(poggimartGreen)
+    d.setTextColor(colors.white)
+    d.write("Poggimart")
   end)
 end
 
+-- Draw layout
 local function drawLayout()
   drawHeader()
-  onScreen(function(scr)
-    scr.setBackgroundColor(headerColor)
-    scr.setCursorPos(1, 7)
-    scr.write(string.rep(" ", termWidth))
-    scr.setCursorPos(3, 7)
-    scr.setTextColor(textColor)
-    scr.write("Scanned Item:")
-
-    -- Display area
-    scr.setBackgroundColor(colors.lightGray)
+  drawOnAll(function(d)
+    d.setBackgroundColor(headerColor)
+    d.setCursorPos(1, 7)
+    d.write(string.rep(" ", termWidth))
+    d.setCursorPos(3, 7)
+    d.setTextColor(textColor)
+    d.write("Scanned Item:")
+    d.setBackgroundColor(colors.lightGray)
     for i = 1, 3 do
-      scr.setCursorPos(2, 8 + i)
-      scr.write(string.rep(" ", termWidth - 3))
+      d.setCursorPos(2, 8 + i)
+      d.write(string.rep(" ", termWidth - 3))
     end
-
-    -- Button bar
-    scr.setCursorPos(1, termHeight - 4)
-    scr.write(string.rep(" ", termWidth))
+    d.setCursorPos(1, termHeight - 4)
+    d.write(string.rep(" ", termWidth))
 
     -- Buttons
-    local function drawButton(x, label, width, color)
-      scr.setBackgroundColor(color)
-      scr.setTextColor(buttonTextColor)
-      scr.setCursorPos(x, termHeight - 2)
-      scr.write(string.rep(" ", width))
-      scr.setCursorPos(x + 2, termHeight - 2)
-      scr.write(label)
-    end
+    local scanBtnX, scanBtnWidth = 4, 20
+    d.setBackgroundColor(buttonColor)
+    d.setCursorPos(scanBtnX, termHeight - 2)
+    d.write(string.rep(" ", scanBtnWidth))
+    d.setCursorPos(scanBtnX + 2, termHeight - 2)
+    d.setTextColor(buttonTextColor)
+    d.write("Scan Random Item")
 
-    drawButton(4, "Scan Random Item", 20, buttonColor)
-    drawButton(26, "Clear", 10, colors.orange)
-    drawButton(38, "Play Jingle", 13, colors.cyan)
+    local clearBtnX, clearBtnWidth = scanBtnX + scanBtnWidth + 2, 10
+    d.setBackgroundColor(colors.orange)
+    d.setCursorPos(clearBtnX, termHeight - 2)
+    d.write(string.rep(" ", clearBtnWidth))
+    d.setCursorPos(clearBtnX + 2, termHeight - 2)
+    d.setTextColor(buttonTextColor)
+    d.write("Clear")
   end)
 end
 
+-- Display scanned item
 local function displayItem(item)
   displayedItem = item
-  onScreen(function(scr)
-    scr.setBackgroundColor(colors.lightGray)
-    scr.setTextColor(textColor)
-    scr.setCursorPos(2, 10)
-    scr.write(string.rep(" ", termWidth - 3))
-    scr.setCursorPos(4, 10)
-    scr.write(item or "")
+  drawOnAll(function(d)
+    d.setBackgroundColor(colors.lightGray)
+    d.setCursorPos(2, 10)
+    d.write(string.rep(" ", termWidth - 3))
+    d.setCursorPos(4, 10)
+    d.setTextColor(textColor)
+    d.write(item)
   end)
-  -- Show on monitor in large text
+
+  -- Monitor-specific large text
   if monitor then
-    monitor.setBackgroundColor(colors.black)
-    monitor.setTextColor(colors.lime)
+    local w, h = monitor.getSize()
     monitor.clear()
-    monitor.setCursorPos(2, 2)
-    monitor.write(">>>")
-    monitor.setCursorPos(6, 4)
-    monitor.write(item or "")
-    monitor.setCursorPos(2, 6)
-    monitor.write("<<<")
+    if w >= 20 and h >= 3 then
+      monitor.setCursorPos(2, 2)
+      monitor.setTextColor(colors.yellow)
+      monitor.setBackgroundColor(colors.black)
+      monitor.write("SCAN COMPLETE")
+      monitor.setCursorPos(2, 3)
+      monitor.write("-> " .. item)
+    else
+      monitor.setCursorPos(1, 1)
+      monitor.write("Monitor too small")
+    end
   end
 end
 
+-- Update clock
 local function updateClock()
   local time = textutils.formatTime(os.time(), false)
-  onScreen(function(scr)
-    scr.setBackgroundColor(poggimartGreen)
-    scr.setTextColor(colors.white)
-    scr.setCursorPos(termWidth - 9, 2)
-    scr.write(" " .. time .. " ")
+  drawOnAll(function(d)
+    d.setBackgroundColor(poggimartGreen)
+    d.setTextColor(colors.white)
+    d.setCursorPos(termWidth - 9, 2)
+    d.write(" " .. time .. " ")
   end)
 end
 
+-- Update ticker
 local function updateTicker()
-  onScreen(function(scr)
-    scr.setBackgroundColor(poggimartBlue)
-    scr.setTextColor(colors.white)
-    scr.setCursorPos(1, termHeight)
-    local displayStr = tickerText:sub(tickerIndex, tickerIndex + termWidth - 1)
-    if #displayStr < termWidth then
-      displayStr = displayStr .. tickerText:sub(1, termWidth - #displayStr)
-    end
-    scr.write(displayStr)
+  local displayStr = tickerText:sub(tickerIndex, tickerIndex + termWidth - 1)
+  if #displayStr < termWidth then
+    displayStr = displayStr .. tickerText:sub(1, termWidth - #displayStr)
+  end
+  drawOnAll(function(d)
+    d.setCursorPos(1, termHeight)
+    d.setBackgroundColor(poggimartBlue)
+    d.setTextColor(colors.white)
+    d.write(displayStr)
   end)
   tickerIndex = tickerIndex + 1
-  if tickerIndex > #tickerText then
-    tickerIndex = 1
-  end
+  if tickerIndex > #tickerText then tickerIndex = 1 end
 end
 
--- Main logic
+-- Main loop
 local function main()
   clearScreen()
   drawLayout()
   displayItem("Welcome to Poggimart!")
-  updateClock()
-  updateTicker()
-
-  clockTimer = os.startTimer(1)
-  tickerTimer = os.startTimer(0.25)
+  os.startTimer(1)
+  os.startTimer(0.25)
 
   while true do
     local event, p1, p2, p3 = os.pullEvent()
-
     if event == "mouse_click" or event == "monitor_touch" then
       local x, y = p2, p3
-      -- Scan button
-      if y == termHeight - 2 and x >= 4 and x < 4 + 20 then
-        local item = items[math.random(#items)]
+      if y == termHeight - 2 and x >= 4 and x < 24 then
+        local item = items[math.random(1, #items)]
         displayItem(item)
         playSound()
       elseif y == termHeight - 2 and x >= 26 and x < 36 then
         displayItem("")
         playSound()
-      elseif y == termHeight - 2 and x >= 38 and x < 38 + 13 then
-        playJingle()
       end
     elseif event == "timer" then
-      if p1 == clockTimer then
+      if p1 == 1 then
         updateClock()
-        clockTimer = os.startTimer(1)
-      elseif p1 == tickerTimer then
+        os.startTimer(1)
+      else
         updateTicker()
-        tickerTimer = os.startTimer(0.25)
+        os.startTimer(0.25)
       end
+    elseif event == "key" and p1 == keys.j then
+      playJingle()
     end
   end
 end
